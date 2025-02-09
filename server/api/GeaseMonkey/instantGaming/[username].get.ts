@@ -1,7 +1,48 @@
-// File: /server/api/ul/[username].get.js
-
+/**
+ * @openapi
+ * /api/GeaseMonkey/instantGaming/{username}:
+ *   get:
+ *     description: Check if the user has finished the script at least once this month
+ *     parameters:
+ *       - name: username
+ *         in: path
+ *         required: true
+ *         description: The username to check
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success - Returns if the user has finished the script this month
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 finished_this_month:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: 'User not found' 
+ *       500:
+ *         description: Server Error - Database connection or other server issues
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: 'DATABASE_URL is not defined'
+ */
+import { hashPasswordSHA } from '../../../../lib/Hash';
 import { neon } from '@neondatabase/serverless';
-import crypto from 'crypto'; // For hashing the username
 
 export default defineEventHandler(async (event) => {
     const username = event.context.params.username;
@@ -12,18 +53,10 @@ export default defineEventHandler(async (event) => {
 
     const sql = neon(process.env.DATABASE_URL);
 
-    // Hash the username (Assuming SHA-256 hashing)
-    const hashedUsername = crypto.createHash('sha256').update(username).digest('hex');
-    console.log(hashedUsername);
+    const hashedUsername = await hashPasswordSHA(username);
 
-    // Get current Unix time for comparison
-    const currentUnixTime = Math.floor(Date.now() / 1000);
-    console.log(currentUnixTime);
-
-    // Get the first day of the current month
     const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000;
 
-    // Retrieve user data from DB using the hashed username
     const result = await sql`
         SELECT last_finished_at, finished_count
         FROM users
@@ -36,8 +69,6 @@ export default defineEventHandler(async (event) => {
     }
 
     const user = result[0];
-    
-    // Check if the user has finished the script at least once this month
     const hasFinishedThisMonth = user.last_finished_at >= firstOfMonth;
 
     return {

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
+    "argon2": "^0.41.1",
     "nuxt": "^3.15.4",
     "vue": "latest",
     "vue-router": "latest"
