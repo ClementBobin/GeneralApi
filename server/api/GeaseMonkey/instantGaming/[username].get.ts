@@ -42,7 +42,7 @@
  *                   example: 'DATABASE_URL is not defined'
  */
 import { hashPasswordSHA } from '../../../../lib/Hash';
-import { neon } from '@neondatabase/serverless';
+import { prisma } from '~/server/db/client';
 
 export default defineEventHandler(async (event) => {
     const username = event.context.params.username;
@@ -51,28 +51,31 @@ export default defineEventHandler(async (event) => {
         throw new Error('DATABASE_URL is not defined');
     }
 
-    const sql = neon(process.env.DATABASE_URL);
-
     const hashedUsername = await hashPasswordSHA(username);
 
+    // Get the first day of the current month (start of the month)
     const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000;
 
-    const result = await sql`
-        SELECT last_finished_at, finished_count
-        FROM users
-        WHERE username = ${hashedUsername}
-        LIMIT 1;
-    `;
+    // Query user data from Prisma
+    const user = await prisma.user.findUnique({
+        where: {
+            hashedUsername: hashedUsername,
+        },
+        select: {
+            lastFinishedAt: true,
+            finishedCount: true,
+        },
+    });
 
-    if (result.length === 0) {
+    if (!user) {
         return { success: false, message: 'User not found' };
     }
 
-    const user = result[0];
-    const hasFinishedThisMonth = user.last_finished_at >= firstOfMonth;
+    // Check if the user has finished the script this month
+    const hasFinishedThisMonth = user.lastFinishedAt >= firstOfMonth;
 
     return {
         success: true,
-        finished_this_month: hasFinishedThisMonth
+        finished_this_month: hasFinishedThisMonth,
     };
 });
