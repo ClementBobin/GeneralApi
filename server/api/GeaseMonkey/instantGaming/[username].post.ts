@@ -52,7 +52,7 @@
  *                   example: 'DATABASE_URL is not defined'
  */
 import { hashPasswordSHA } from '../../../../lib/Hash';
-import { neon } from '@neondatabase/serverless';
+import { prisma } from '~/server/db/client';
 
 export default defineEventHandler(async (event) => {
     const username = event.context.params.username;
@@ -61,20 +61,27 @@ export default defineEventHandler(async (event) => {
         throw new Error('DATABASE_URL is not defined');
     }
 
-    const sql = neon(process.env.DATABASE_URL);
-
     const hashedUsername = await hashPasswordSHA(username);
 
     const currentUnixTime = Math.floor(Date.now() / 1000);
 
-    const result = await sql`
-        UPDATE users
-        SET last_finished_at = ${currentUnixTime}, finished_count = finished_count + 1
-        WHERE username = ${hashedUsername}
-        RETURNING id;
-    `;
+    // Update user data in the Prisma database
+    const user = await prisma.user.update({
+        where: {
+            hashedUsername: hashedUsername,
+        },
+        data: {
+            lastFinishedAt: currentUnixTime,
+            finishedCount: {
+                increment: 1,
+            },
+        },
+        select: {
+            id: true,
+        },
+    });
 
-    if (result.length === 0) {
+    if (!user) {
         return { success: false, message: 'User not found' };
     }
 
