@@ -7,7 +7,7 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare && npx prisma generate || exit 0"
   },
   "prisma": {
     "seed": "node --loader ts-node/esm prisma/seed.ts"
